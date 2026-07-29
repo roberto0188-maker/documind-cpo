@@ -2853,33 +2853,55 @@ function copiarCorreoReclamo(asunto) {
 // -- Traducción de valores del Sheet al inglés para el PDF -------------------
 function tradES(valor) {
   const dic = {
-    // Tipos de reclamo
+    // Tipos de reclamo (valores reales del formulario)
+    'Producto faltante':              'Missing product',
     'Producto dañado en envío':       'Product damaged in transit',
+    'Producto dañado en envio':       'Product damaged in transit',
+    'Malas condiciones':              'Poor condition',
+    'Falla de funcionamiento':        'Malfunction / Functional failure',
     'Producto defectuoso':            'Defective product',
     'Cantidad incorrecta':            'Incorrect quantity',
     'Producto vencido':               'Expired product',
     'Embalaje dañado':                'Damaged packaging',
     'Error de despacho':              'Dispatch error',
     'Producto equivocado':            'Wrong product',
-    // Momento detectado
+    // Momento detectado (valores reales del formulario)
+    'A la recepción':                 'At reception',
+    'A la recepcion':                 'At reception',
     'En recepción':                   'At reception',
+    'Durante proceso de venta':       'During sales process',
     'En almacenamiento':              'In storage',
     'En producción':                  'During production',
     'En entrega al cliente':          'At customer delivery',
     'En uso':                         'During use',
-    // Condición embalaje
+    // Condición embalaje (valores reales del formulario)
     'Buena':                          'Good',
     'Dañada':                         'Damaged',
+    'Danada':                         'Damaged',
+    'No aplica':                      'N/A',
     'Regular':                        'Fair',
     'Muy dañada':                     'Severely damaged',
     // Maquinaria
     'Sí':  'Yes',
+    'Si':  'Yes',
     'No':  'No',
     // Unidades
     'Unidades': 'Units',
+    'unidad':   'Unit',
+    'kg':       'Kg',
     'Kg':       'Kg',
+    'litro':    'Liter',
     'Litros':   'Liters',
+    'metro':    'Meter',
     'Metros':   'Meters',
+    'caja':     'Box',
+    'rollo':    'Roll',
+    'resma':    'Ream',
+    'galón':    'Gallon',
+    'drum':     'Drum',
+    'pail':     'Pail',
+    'set':      'Set',
+    'otro':     'Other',
   };
   return dic[valor] || valor;
 }
