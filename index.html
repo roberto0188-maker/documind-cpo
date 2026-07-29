@@ -2881,8 +2881,15 @@ function tradES(valor) {
     'No aplica':                      'N/A',
     'Regular':                        'Fair',
     'Muy dañada':                     'Severely damaged',
-    // Maquinaria
-    'Sí':  'Yes',
+    // Batch / valores especiales
+    'NO TIENE':   'N/A',
+    'No tiene':   'N/A',
+    'no tiene':   'N/A',
+    'N/A':        'N/A',
+    'n/a':        'N/A',
+    'NINGUNO':    'None',
+    'ninguno':    'None',
+    '—':          '—',
     'Si':  'Yes',
     'No':  'No',
     // Unidades
@@ -2939,11 +2946,34 @@ async function generarPDFProveedor() {
   const esIngles  = idioma === 'Inglés';
   const fotosAdj  = cpoFotos.filter(f => f !== null);
 
-  const resolucionTexto = resolucionTipo === 'nota_credito'
+  let resolucionTexto = resolucionTipo === 'nota_credito'
     ? (esIngles ? 'Issuance of a credit note for the full value of the affected goods' : 'Emisión de nota de crédito por el valor de la mercancía afectada')
     : resolucionTipo === 'reenvio'
     ? (esIngles ? 'Immediate reshipment of the affected product' : 'Reenvío inmediato del producto afectado')
     : resolucionOtros || (esIngles ? 'Formal resolution' : 'Resolución formal');
+
+  // Si es texto libre y el PDF es en inglés, traducir con IA
+  if (esIngles && resolucionTipo === 'otros' && resolucionOtros) {
+    try {
+      const tradRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 200,
+          messages: [{ role: 'user', content: `Translate this Spanish procurement resolution request to professional English. Output ONLY the translated text, nothing else:\n\n"${resolucionOtros}"` }]
+        })
+      });
+      const tradData = await tradRes.json();
+      const tradTexto = tradData.content?.[0]?.text?.trim();
+      if (tradTexto) resolucionTexto = tradTexto;
+    } catch(e) { /* usar texto original si falla */ }
+  }
 
   // Header strip
   function drawHeader() {
@@ -3022,7 +3052,7 @@ async function generarPDFProveedor() {
   // S1: Producto
   Y=sectionLabel(esIngles?'1. Product Details':'1. Datos del Producto',Y);
   Y=dataRow(esIngles?'Product':'Producto',r.producto,esIngles?'Code':'Código',r.codigo,Y);
-  Y=dataRow(esIngles?'Batch / Lot':'Lote / Batch',r.batch,esIngles?'Qty Affected':'Cantidad afectada',`${r.cantidad} ${r.unidad}`,Y);
+  Y=dataRow(esIngles?'Batch / Lot':'Lote / Batch',tradES(r.batch),esIngles?'Qty Affected':'Cantidad afectada',`${r.cantidad} ${tradES(r.unidad)}`,Y);
   Y=dataRow(esIngles?'Claim Type':'Tipo de reclamo',esIngles?tradES(r.tipo):r.tipo,esIngles?'Detected at':'Momento detectado',esIngles?tradES(r.momento):r.momento,Y);
   Y=dataRow(esIngles?'Packaging condition':'Condición embalaje',esIngles?tradES(r.embalaje):r.embalaje,esIngles?'Equipment S/N':'No. Serie',r.maquinaria==='Sí'?(esIngles?r.serie:r.serie):'N/A',Y);
 
