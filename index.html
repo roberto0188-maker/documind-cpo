@@ -2460,16 +2460,12 @@ Reescribe la descripción del problema en lenguaje técnico formal para enviar a
 - No mencionar regulaciones ni normativas
 - Responder SOLO con la descripción mejorada, sin introducción ni comentarios adicionales`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(APPS_SCRIPT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        accion: 'llamarClaude',
+        model: 'claude-sonnet-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -2853,62 +2849,33 @@ function copiarCorreoReclamo(asunto) {
 // -- Traducción de valores del Sheet al inglés para el PDF -------------------
 function tradES(valor) {
   const dic = {
-    // Tipos de reclamo (valores reales del formulario)
-    'Producto faltante':              'Missing product',
+    // Tipos de reclamo
     'Producto dañado en envío':       'Product damaged in transit',
-    'Producto dañado en envio':       'Product damaged in transit',
-    'Malas condiciones':              'Poor condition',
-    'Falla de funcionamiento':        'Malfunction / Functional failure',
     'Producto defectuoso':            'Defective product',
     'Cantidad incorrecta':            'Incorrect quantity',
     'Producto vencido':               'Expired product',
     'Embalaje dañado':                'Damaged packaging',
     'Error de despacho':              'Dispatch error',
     'Producto equivocado':            'Wrong product',
-    // Momento detectado (valores reales del formulario)
-    'A la recepción':                 'At reception',
-    'A la recepcion':                 'At reception',
+    // Momento detectado
     'En recepción':                   'At reception',
-    'Durante proceso de venta':       'During sales process',
     'En almacenamiento':              'In storage',
     'En producción':                  'During production',
     'En entrega al cliente':          'At customer delivery',
     'En uso':                         'During use',
-    // Condición embalaje (valores reales del formulario)
+    // Condición embalaje
     'Buena':                          'Good',
     'Dañada':                         'Damaged',
-    'Danada':                         'Damaged',
-    'No aplica':                      'N/A',
     'Regular':                        'Fair',
     'Muy dañada':                     'Severely damaged',
-    // Batch / valores especiales
-    'NO TIENE':   'N/A',
-    'No tiene':   'N/A',
-    'no tiene':   'N/A',
-    'N/A':        'N/A',
-    'n/a':        'N/A',
-    'NINGUNO':    'None',
-    'ninguno':    'None',
-    '—':          '—',
-    'Si':  'Yes',
+    // Maquinaria
+    'Sí':  'Yes',
     'No':  'No',
     // Unidades
     'Unidades': 'Units',
-    'unidad':   'Unit',
-    'kg':       'Kg',
     'Kg':       'Kg',
-    'litro':    'Liter',
     'Litros':   'Liters',
-    'metro':    'Meter',
     'Metros':   'Meters',
-    'caja':     'Box',
-    'rollo':    'Roll',
-    'resma':    'Ream',
-    'galón':    'Gallon',
-    'drum':     'Drum',
-    'pail':     'Pail',
-    'set':      'Set',
-    'otro':     'Other',
   };
   return dic[valor] || valor;
 }
@@ -2946,34 +2913,11 @@ async function generarPDFProveedor() {
   const esIngles  = idioma === 'Inglés';
   const fotosAdj  = cpoFotos.filter(f => f !== null);
 
-  let resolucionTexto = resolucionTipo === 'nota_credito'
+  const resolucionTexto = resolucionTipo === 'nota_credito'
     ? (esIngles ? 'Issuance of a credit note for the full value of the affected goods' : 'Emisión de nota de crédito por el valor de la mercancía afectada')
     : resolucionTipo === 'reenvio'
     ? (esIngles ? 'Immediate reshipment of the affected product' : 'Reenvío inmediato del producto afectado')
     : resolucionOtros || (esIngles ? 'Formal resolution' : 'Resolución formal');
-
-  // Si es texto libre y el PDF es en inglés, traducir con IA
-  if (esIngles && resolucionTipo === 'otros' && resolucionOtros) {
-    try {
-      const tradRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 200,
-          messages: [{ role: 'user', content: `Translate this Spanish procurement resolution request to professional English. Output ONLY the translated text, nothing else:\n\n"${resolucionOtros}"` }]
-        })
-      });
-      const tradData = await tradRes.json();
-      const tradTexto = tradData.content?.[0]?.text?.trim();
-      if (tradTexto) resolucionTexto = tradTexto;
-    } catch(e) { /* usar texto original si falla */ }
-  }
 
   // Header strip
   function drawHeader() {
@@ -3052,7 +2996,7 @@ async function generarPDFProveedor() {
   // S1: Producto
   Y=sectionLabel(esIngles?'1. Product Details':'1. Datos del Producto',Y);
   Y=dataRow(esIngles?'Product':'Producto',r.producto,esIngles?'Code':'Código',r.codigo,Y);
-  Y=dataRow(esIngles?'Batch / Lot':'Lote / Batch',tradES(r.batch),esIngles?'Qty Affected':'Cantidad afectada',`${r.cantidad} ${tradES(r.unidad)}`,Y);
+  Y=dataRow(esIngles?'Batch / Lot':'Lote / Batch',r.batch,esIngles?'Qty Affected':'Cantidad afectada',`${r.cantidad} ${r.unidad}`,Y);
   Y=dataRow(esIngles?'Claim Type':'Tipo de reclamo',esIngles?tradES(r.tipo):r.tipo,esIngles?'Detected at':'Momento detectado',esIngles?tradES(r.momento):r.momento,Y);
   Y=dataRow(esIngles?'Packaging condition':'Condición embalaje',esIngles?tradES(r.embalaje):r.embalaje,esIngles?'Equipment S/N':'No. Serie',r.maquinaria==='Sí'?(esIngles?r.serie:r.serie):'N/A',Y);
 
@@ -3259,12 +3203,7 @@ async function guardarEtapa2() {
     await fetch(APPS_SCRIPT, {
       method: 'POST',
       mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos)
     });
     btn.textContent = '✓ Guardado';
@@ -4013,16 +3952,12 @@ Respond ONLY with a JSON object like:
 
 If you cannot determine prices or currency, respond with: {"moneda": null, "productos": []}`;
 
-      const archivoRes = await fetch('https://api.anthropic.com/v1/messages', {
+      const archivoRes = await fetch(APPS_SCRIPT, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          accion: 'llamarClaude',
+          model: 'claude-sonnet-5',
           max_tokens: 500,
           messages: [{
             role: 'user',
@@ -4142,16 +4077,12 @@ Products: ${prodNombres}
 
 Respond ONLY with a concise factual summary (3-5 sentences) that can be used as negotiation context. Focus on raw material cost trends. If raw material costs are currently decreasing or stable, emphasize this as leverage for price reduction requests. Be factual and specific.`;
 
-      const resRes = await fetch('https://api.anthropic.com/v1/messages', {
+      const resRes = await fetch(APPS_SCRIPT, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          accion: 'llamarClaude',
+          model: 'claude-sonnet-5',
           max_tokens: 500,
           messages: [{ role: 'user', content: researchPrompt }]
         })
@@ -4167,16 +4098,12 @@ Respond ONLY with a concise factual summary (3-5 sentences) that can be used as 
 
   let cuerpo = '';
   try {
-    const res  = await fetch('https://api.anthropic.com/v1/messages', {
+    const res  = await fetch(APPS_SCRIPT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        accion: 'llamarClaude',
+        model: 'claude-sonnet-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -4388,9 +4315,7 @@ function setTradDir(dir) {
   document.getElementById('trad-resultado').style.display = 'none';
 }
 
-// ── Función genérica de llamada a Claude ─────────────────────────────────────
-const ANTHROPIC_KEY = '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';
-
+// ── Función genérica de llamada a Claude (vía proxy Apps Script) ─────────────
 async function llamarClaude(prompt, btnId, loadingText) {
   const btn = document.getElementById(btnId);
   const orig = btn.innerHTML;
@@ -4398,16 +4323,12 @@ async function llamarClaude(prompt, btnId, loadingText) {
   btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;"></span>${loadingText}</span>`;
 
   try {
-    const res  = await fetch('https://api.anthropic.com/v1/messages', {
+    const res  = await fetch(APPS_SCRIPT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        accion: 'llamarClaude',
+        model: 'claude-sonnet-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -4598,16 +4519,12 @@ Redacta una respuesta completa y profesional. Firma como: Roberto Miranda, Chief
   btn.innerHTML = 'Generando...';
 
   try {
-    const res  = await fetch('https://api.anthropic.com/v1/messages', {
+    const res  = await fetch(APPS_SCRIPT, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        accion: 'llamarClaude',
+        model: 'claude-sonnet-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       })
