@@ -2847,7 +2847,7 @@ function copiarCorreoReclamo(asunto) {
 // ── PDF Proveedor ─────────────────────────────────────────────────────────────
 
 // -- Traducción de valores del Sheet al inglés para el PDF -------------------
-function tradES(valor) {
+async function tradES(valor) {
   const dic = {
     // Tipos de reclamo
     'Producto dañado en envío':       'Product damaged in transit',
@@ -2857,12 +2857,16 @@ function tradES(valor) {
     'Embalaje dañado':                'Damaged packaging',
     'Error de despacho':              'Dispatch error',
     'Producto equivocado':            'Wrong product',
+    'Producto faltante':              'Missing product',
+    'Malas condiciones':              'Poor condition',
+    'Falla de funcionamiento':        'Malfunction',
     // Momento detectado
     'En recepción':                   'At reception',
     'En almacenamiento':              'In storage',
     'En producción':                  'During production',
     'En entrega al cliente':          'At customer delivery',
     'En uso':                         'During use',
+    'Durante proceso de venta':       'During sales process',
     // Condición embalaje
     'Buena':                          'Good',
     'Dañada':                         'Damaged',
@@ -2877,7 +2881,32 @@ function tradES(valor) {
     'Litros':   'Liters',
     'Metros':   'Meters',
   };
-  return dic[valor] || valor;
+
+  if (dic[valor]) return dic[valor];
+  if (!valor) return valor;
+
+  // Fallback IA: traduce valores no mapeados en el diccionario (opciones nuevas del formulario)
+  try {
+    const res = await fetch(APPS_SCRIPT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        accion: 'llamarClaude',
+        model: 'claude-sonnet-5',
+        max_tokens: 20,
+        messages: [{
+          role: 'user',
+          content: `Traduce este término corto de español a inglés, en el contexto de un reclamo de calidad B2B industrial (artes gráficas). Responde SOLO con la traducción, sin comillas ni explicación adicional: "${valor}"`
+        }]
+      })
+    });
+    const data = await res.json();
+    const traduccion = data.content?.[0]?.text?.trim();
+    return traduccion || valor;
+  } catch(e) {
+    console.warn('tradES: fallback IA falló, se usa valor original:', e);
+    return valor;
+  }
 }
 
 async function generarPDFProveedor() {
@@ -2997,8 +3026,8 @@ async function generarPDFProveedor() {
   Y=sectionLabel(esIngles?'1. Product Details':'1. Datos del Producto',Y);
   Y=dataRow(esIngles?'Product':'Producto',r.producto,esIngles?'Code':'Código',r.codigo,Y);
   Y=dataRow(esIngles?'Batch / Lot':'Lote / Batch',r.batch,esIngles?'Qty Affected':'Cantidad afectada',`${r.cantidad} ${r.unidad}`,Y);
-  Y=dataRow(esIngles?'Claim Type':'Tipo de reclamo',esIngles?tradES(r.tipo):r.tipo,esIngles?'Detected at':'Momento detectado',esIngles?tradES(r.momento):r.momento,Y);
-  Y=dataRow(esIngles?'Packaging condition':'Condición embalaje',esIngles?tradES(r.embalaje):r.embalaje,esIngles?'Equipment S/N':'No. Serie',r.maquinaria==='Sí'?(esIngles?r.serie:r.serie):'N/A',Y);
+  Y=dataRow(esIngles?'Claim Type':'Tipo de reclamo',esIngles?await tradES(r.tipo):r.tipo,esIngles?'Detected at':'Momento detectado',esIngles?await tradES(r.momento):r.momento,Y);
+  Y=dataRow(esIngles?'Packaging condition':'Condición embalaje',esIngles?await tradES(r.embalaje):r.embalaje,esIngles?'Equipment S/N':'No. Serie',r.maquinaria==='Sí'?(esIngles?r.serie:r.serie):'N/A',Y);
 
   // S2: Descripción técnica
   checkPage(50);
